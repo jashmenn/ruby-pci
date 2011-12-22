@@ -1,4 +1,5 @@
 require 'time'
+require 'pp'
 
 $people = [ %w-Seymour BOS-,
             %w-Franny DAL-,
@@ -72,7 +73,7 @@ end
 def random_optimize(domain, costf)
   best = 999999999
   bestr = nil
-  1000.times do |i|
+  3.times do |i|
     # Create a random solution
     r = domain.map { |d| d.first + rand(d.last - d.first) }
     
@@ -91,6 +92,8 @@ end
 def hill_climb(domain, costf)
   # Create a random solution
   sol = domain.map { |d| d.first + rand(d.last - d.first) }
+  max = 1000
+  i = 0
   
   # Main loop
   loop do
@@ -98,12 +101,11 @@ def hill_climb(domain, costf)
     # Create a list of neighbouring solutions
     neighbours = []
     domain.size.times do |j|
-      
       # One away in each direction
-      neighbours.push(sol[0...j] + [sol[j]+1] + sol[(j+1)..-1]) if sol[j] > domain[j].first
-      neighbours.push(sol[0...j] + [sol[j]-1] + sol[(j+1)..-1]) if sol[j] < domain[j].last
+      neighbours.push(sol[0...j] + [sol[j]+1] + sol[(j+1)..-1]) if sol[j] < domain[j].last - 1
+      neighbours.push(sol[0...j] + [sol[j]-1] + sol[(j+1)..-1]) if sol[j] > domain[j].first + 1
     end
-    
+
     # See what the best solution among the neighbours is
     current = costf[sol]
     best = current
@@ -117,12 +119,40 @@ def hill_climb(domain, costf)
     
     # If there's no improvement, we've reached the top
     break if best == current
+    break if i >= max
+    i = i+1
+  end
+  sol
+end
+
+def annealing_optimize(domain, costf, t=10000.0, cool=0.95,step=1)
+  # create a random solution
+  sol = domain.map { |d| d.first + rand(d.last - d.first) }
+
+  while t>0.1
+    idx = rand(domain.size) # choose one of the indices
+    dir = [-1,1].sample # choose a direction to change it
+    neighbour = sol.dup
+    neighbour[idx] = neighbour[idx] + dir #  one of the values changed
+
+    # snap to domain
+    neighbour[idx] = domain[idx].first if neighbour[idx] < domain[idx].first
+    neighbour[idx] = domain[idx].last  if neighbour[idx] > domain[idx].last
+
+    ea = costf[sol]
+    eb = costf[neighbour]
+    p = Math::E**((-eb-ea)/t)
+    sol = neighbour if eb<ea || rand < p
+
+    # Decrease the temperature   
+    t=t*cool
   end
   sol
 end
 
 domain = [0..8] * $people.size * 2
-s = hill_climb(domain, method(:schedule_cost))
+#s = random_optimize(domain, method(:schedule_cost))
+#s = hill_climb(domain, method(:schedule_cost))
+s = annealing_optimize(domain, method(:schedule_cost))
 puts schedule_cost(s)
 print_schedule(s)
-
